@@ -13,33 +13,18 @@ describe('configSchema', () => {
         anthropic: { apiKey: 'test-key' },
         openai: { apiKey: 'test-key', baseURL: 'https://api.example.com' },
       },
-      defaultProvider: 'anthropic',
-      defaultModel: 'claude-sonnet-4-20250514',
       include: ['**/*.eval.ts'],
       exclude: ['node_modules/**'],
       trials: 3,
       timeout: 30000,
       parallel: true,
       maxConcurrency: 10,
-      judge: {
-        provider: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
-      },
       reporters: ['console', 'json'],
       maxCost: 5.0,
     }
 
     const result = configSchema.safeParse(config)
     expect(result.success).toBe(true)
-  })
-
-  it('rejects invalid provider', () => {
-    const config = {
-      defaultProvider: 'invalid-provider',
-    }
-
-    const result = configSchema.safeParse(config)
-    expect(result.success).toBe(false)
   })
 
   it('rejects negative trials', () => {
@@ -65,6 +50,15 @@ describe('configSchema', () => {
       providers: {
         anthropic: { baseURL: 'not-a-url' },
       },
+    }
+
+    const result = configSchema.safeParse(config)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects zero maxConcurrency', () => {
+    const config = {
+      maxConcurrency: 0,
     }
 
     const result = configSchema.safeParse(config)

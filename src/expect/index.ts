@@ -1,8 +1,5 @@
-import type { ChatResult, GraderResult, ToolCall, AIProvider } from '../types.js'
+import type { ChatResult, GraderResult, ToolCall, AIProvider, AIConfig } from '../types.js'
 
-/**
- * Expectation error that captures grader failure details
- */
 export class ExpectationError extends Error {
   constructor(
     public graderResult: GraderResult,
@@ -13,9 +10,6 @@ export class ExpectationError extends Error {
   }
 }
 
-/**
- * Tool calls wrapper for tool-specific assertions
- */
 export class ToolCallsExpect {
   private negated: boolean = false
 
@@ -30,9 +24,6 @@ export class ToolCallsExpect {
     return instance
   }
 
-  /**
-   * Assert that a tool was called
-   */
   toInclude(toolName: string): void {
     const found = this.toolCalls.some((tc) => tc.name === toolName)
     const pass = this.negated ? !found : found
@@ -52,9 +43,6 @@ export class ToolCallsExpect {
     }
   }
 
-  /**
-   * Assert that a tool was called with specific arguments
-   */
   toHaveArgs(toolName: string, expectedArgs: Record<string, unknown>): void {
     const call = this.toolCalls.find((tc) => tc.name === toolName)
 
@@ -72,7 +60,6 @@ export class ToolCallsExpect {
       return
     }
 
-    // Check if arguments match
     const argsMatch = Object.entries(expectedArgs).every(([key, value]) => {
       const actual = call.arguments[key]
       return JSON.stringify(actual) === JSON.stringify(value)
@@ -95,9 +82,6 @@ export class ToolCallsExpect {
     }
   }
 
-  /**
-   * Assert that a tool execution returned a specific result
-   */
   toHaveResult(toolName: string, expectedResult: unknown): void {
     const call = this.toolCalls.find((tc) => tc.name === toolName)
 
@@ -142,19 +126,12 @@ export class ToolCallsExpect {
   }
 }
 
-/**
- * Options for LLM judge
- */
 export interface JudgeOptions {
-  prompt: string
-  model?: string
-  provider?: 'anthropic' | 'openai'
+  criteria: string
   threshold?: number
+  judge?: AIConfig
 }
 
-/**
- * Main expect wrapper for ChatResult assertions
- */
 export class Expect {
   private negated: boolean = false
   private _toolCalls: ToolCallsExpect
@@ -162,13 +139,14 @@ export class Expect {
   constructor(
     private result: ChatResult,
     private graderResults: GraderResult[],
-    private judgeProvider?: AIProvider
+    private judgeProvider?: AIProvider,
+    private judgeConfig?: AIConfig
   ) {
     this._toolCalls = new ToolCallsExpect(result.toolCalls, graderResults)
   }
 
   get not(): Expect {
-    const instance = new Expect(this.result, this.graderResults, this.judgeProvider)
+    const instance = new Expect(this.result, this.graderResults, this.judgeProvider, this.judgeConfig)
     instance.negated = !this.negated
     instance._toolCalls = this._toolCalls.not
     return instance
@@ -178,9 +156,6 @@ export class Expect {
     return this.negated ? this._toolCalls.not : this._toolCalls
   }
 
-  /**
-   * Assert that the output contains a substring
-   */
   toContain(text: string, options?: { caseSensitive?: boolean }): void {
     const caseSensitive = options?.caseSensitive ?? false
     const content = caseSensitive ? this.result.content : this.result.content.toLowerCase()
@@ -205,9 +180,6 @@ export class Expect {
     }
   }
 
-  /**
-   * Assert that the output matches a regex pattern
-   */
   toMatch(pattern: RegExp | string): void {
     const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern
     const matches = regex.test(this.result.content)
@@ -229,13 +201,8 @@ export class Expect {
     }
   }
 
-  /**
-   * Assert the number of questions in the output
-   */
   toAskQuestions(options: { min?: number; max?: number }): void {
     const { min = 0, max = Infinity } = options
-
-    // Count question marks as a simple heuristic
     const questionCount = (this.result.content.match(/\?/g) || []).length
 
     const inRange = questionCount >= min && questionCount <= max
@@ -255,23 +222,21 @@ export class Expect {
     }
   }
 
-  /**
-   * Assert using an LLM judge
-   */
-  async toPassJudge(promptOrOptions: string | JudgeOptions): Promise<void> {
+  async toPassJudge(criteriaOrOptions: string | JudgeOptions): Promise<void> {
     if (!this.judgeProvider) {
-      throw new Error('LLM judge not configured. Set judge config in agenteval.config.ts')
+      throw new Error('LLM judge not configured. Make sure provider API keys are set.')
     }
 
     const options: JudgeOptions =
-      typeof promptOrOptions === 'string'
-        ? { prompt: promptOrOptions }
-        : promptOrOptions
+      typeof criteriaOrOptions === 'string'
+        ? { criteria: criteriaOrOptions }
+        : criteriaOrOptions
 
-    const { prompt, threshold = 0.5 } = options
+    const { criteria, threshold = 0.5 } = options
 
     // Call the judge
     const judgeResult = await this.judgeProvider.chat({
+      model: options.judge?.model ?? this.judgeConfig?.model,
       system: `You are an evaluation judge. Analyze the AI output and determine if it meets the given criteria.
 Respond with a JSON object containing:
 - "pass": boolean (true if the output meets the criteria)
@@ -283,7 +248,7 @@ Be objective and precise in your evaluation.`,
         {
           role: 'user',
           content: `## Criteria
-${prompt}
+${criteria}
 
 ## AI Output to Evaluate
 ${this.result.content}
@@ -296,7 +261,6 @@ ${this.result.content}
     // Parse the judge response
     let judgment: { pass: boolean; score: number; reason: string }
     try {
-      // Extract JSON from the response
       const jsonMatch = judgeResult.content.match(/\{[\s\S]*\}/)
       if (!jsonMatch) {
         throw new Error('No JSON found in judge response')
@@ -310,7 +274,6 @@ ${this.result.content}
       }
     }
 
-    // Apply threshold
     const passesThreshold = judgment.score >= threshold
     const pass = this.negated ? !passesThreshold : passesThreshold
 
@@ -333,9 +296,6 @@ ${this.result.content}
     }
   }
 
-  /**
-   * Apply a custom grader function
-   */
   to(grader: (result: ChatResult) => GraderResult | Promise<GraderResult>): Promise<void>
   to(grader: (result: ChatResult) => GraderResult): void
   to(
@@ -376,13 +336,11 @@ ${this.result.content}
   }
 }
 
-/**
- * Create an expect instance for a ChatResult
- */
 export function createExpect(
   result: ChatResult,
   graderResults: GraderResult[],
-  judgeProvider?: AIProvider
+  judgeProvider?: AIProvider,
+  judgeConfig?: AIConfig
 ): Expect {
-  return new Expect(result, graderResults, judgeProvider)
+  return new Expect(result, graderResults, judgeProvider, judgeConfig)
 }

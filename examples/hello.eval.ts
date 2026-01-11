@@ -1,6 +1,7 @@
-import { describe, evalTask as e } from '../src/index.js'
+import { describe, evalTask as e, anthropic } from '../src/index.js'
 
 describe('hello-world', {
+  ai: anthropic('claude-sonnet-4-20250514'),
   system: 'You are a friendly assistant. Keep responses brief.',
 }, () => {
 

@@ -15,8 +15,6 @@ export interface RunOptions {
   maxCost?: number
   reporter?: 'console' | 'json'
   verbose?: boolean
-  model?: string
-  provider?: 'anthropic' | 'openai'
   dryRun?: boolean
 }
 
@@ -41,12 +39,6 @@ export async function runCommand(
   }
   if (options.maxCost !== undefined) {
     config.maxCost = options.maxCost
-  }
-  if (options.model !== undefined) {
-    config.defaultModel = options.model
-  }
-  if (options.provider !== undefined) {
-    config.defaultProvider = options.provider
   }
 
   // Discover eval files

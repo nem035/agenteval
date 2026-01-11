@@ -1,6 +1,11 @@
 /**
- * Core types for Evalite
+ * Core types for agenteval
  */
+
+import type { AIConfig } from './providers.js'
+
+// Re-export AIConfig for convenience
+export type { AIConfig }
 
 // ============================================================================
 // Messages & Conversations
@@ -89,16 +94,16 @@ export interface GraderResult {
 // ============================================================================
 
 export interface SuiteOptions {
+  ai?: AIConfig
+  judge?: AIConfig
   system?: string
-  model?: string
-  provider?: ProviderName
   tools?: (ToolDefinition | ToolWithExecutor)[]
 }
 
 export interface EvalOptions {
+  ai?: AIConfig
+  judge?: AIConfig
   tools?: Record<string, ToolWithExecutor>
-  model?: string
-  provider?: ProviderName
   timeout?: number
 }
 
@@ -109,7 +114,7 @@ export interface ExpectInterface {
   toContain(text: string, options?: { caseSensitive?: boolean }): void
   toMatch(pattern: RegExp | string): void
   toAskQuestions(options: { min?: number; max?: number }): void
-  toPassJudge(promptOrOptions: string | { prompt: string; model?: string; threshold?: number }): Promise<void>
+  toPassJudge(criteriaOrOptions: string | { criteria: string; threshold?: number; judge?: AIConfig }): Promise<void>
   to(grader: (result: ChatResult) => GraderResult | Promise<GraderResult>): void | Promise<void>
 }
 
@@ -194,25 +199,17 @@ export interface ProviderConfig {
   baseURL?: string
 }
 
-export interface JudgeConfig {
-  provider?: ProviderName
-  model?: string
-}
-
 export interface EvaliteConfig {
   providers?: {
     anthropic?: ProviderConfig
     openai?: ProviderConfig
   }
-  defaultProvider?: ProviderName
-  defaultModel?: string
   include?: string[]
   exclude?: string[]
   trials?: number
   timeout?: number
   parallel?: boolean
   maxConcurrency?: number
-  judge?: JudgeConfig
   reporters?: ('console' | 'json')[]
   maxCost?: number
 }

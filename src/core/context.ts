@@ -18,31 +18,29 @@ import { createExpect, Expect } from '../expect/index.js'
  */
 export function createEvalContext(
   providers: Map<ProviderName, AIProvider>,
-  config: EvaliteConfig,
+  _config: EvaliteConfig,
   suiteOptions: SuiteOptions,
   evalOptions: EvalOptions,
   graderResults: GraderResult[]
 ): EvalContext & { expect: (result: ChatResult) => Expect } {
-  // Determine which provider to use
-  const providerName =
-    evalOptions.provider ??
-    suiteOptions.provider ??
-    config.defaultProvider ??
-    'anthropic'
-
-  const provider = providers.get(providerName)
-  if (!provider) {
+  // Get explicit ai config from eval options or suite options
+  const aiConfig = evalOptions.ai ?? suiteOptions.ai
+  if (!aiConfig) {
     throw new Error(
-      `Provider "${providerName}" not configured. Add API key to config or environment.`
+      'No AI provider configured. Use ai: anthropic("model") or ai: openai("model") in describe() options.'
     )
   }
 
-  // Get the judge provider for LLM grading
-  const judgeProviderName = config.judge?.provider ?? providerName
-  const judgeProvider = providers.get(judgeProviderName)
+  const provider = providers.get(aiConfig.provider)
+  if (!provider) {
+    throw new Error(
+      `Provider "${aiConfig.provider}" not configured. Add API key to config or environment.`
+    )
+  }
 
-  // Determine model
-  const model = evalOptions.model ?? suiteOptions.model ?? config.defaultModel
+  // Get judge config (falls back to same as ai config)
+  const judgeConfig = evalOptions.judge ?? suiteOptions.judge ?? aiConfig
+  const judgeProvider = providers.get(judgeConfig.provider) ?? provider
 
   // Collect tools from suite and eval options
   const suiteTools = suiteOptions.tools ?? []
@@ -64,7 +62,7 @@ export function createEvalContext(
         conversationHistory.push(...messages)
 
         const result = await provider.chat({
-          model,
+          model: aiConfig.model,
           system: suiteOptions.system,
           messages: conversationHistory,
           tools: tools.length > 0 ? tools : undefined,
@@ -79,6 +77,6 @@ export function createEvalContext(
         return result
       },
     },
-    expect: (result: ChatResult) => createExpect(result, graderResults, judgeProvider),
+    expect: (result: ChatResult) => createExpect(result, graderResults, judgeProvider, judgeConfig),
   }
 }

@@ -10,10 +10,5 @@ describe('defaultConfig', () => {
     expect(defaultConfig.parallel).toBe(true)
     expect(defaultConfig.maxConcurrency).toBe(5)
     expect(defaultConfig.reporters).toContain('console')
-    expect(defaultConfig.defaultProvider).toBe('anthropic')
-  })
-
-  it('has valid default model', () => {
-    expect(defaultConfig.defaultModel).toMatch(/claude/)
   })
 })

@@ -14,14 +14,14 @@ function createMockProvider(response: string = 'Mock response'): AIProvider {
 
 function createMockConfig(overrides: Partial<EvaliteConfig> = {}): EvaliteConfig {
   return {
-    defaultProvider: 'anthropic',
-    defaultModel: 'test-model',
     trials: 1,
     parallel: false,
     timeout: 5000,
     ...overrides,
   }
 }
+
+const mockAiConfig = { provider: 'anthropic' as const, model: 'test-model' }
 
 describe('runSuites', () => {
   let mockProvider: AIProvider
@@ -37,7 +37,7 @@ describe('runSuites', () => {
       {
         name: 'test-suite',
         file: '/test.eval.ts',
-        options: { system: 'You are helpful' },
+        options: { ai: mockAiConfig, system: 'You are helpful' },
         tasks: [
           {
             name: 'passing-task',
@@ -66,7 +66,7 @@ describe('runSuites', () => {
       {
         name: 'test-suite',
         file: '/test.eval.ts',
-        options: {},
+        options: { ai: mockAiConfig },
         tasks: [
           {
             name: 'failing-task',
@@ -93,7 +93,7 @@ describe('runSuites', () => {
       {
         name: 'test-suite',
         file: '/test.eval.ts',
-        options: {},
+        options: { ai: mockAiConfig },
         tasks: [
           {
             name: 'error-task',
@@ -120,7 +120,7 @@ describe('runSuites', () => {
       {
         name: 'test-suite',
         file: '/test.eval.ts',
-        options: {},
+        options: { ai: mockAiConfig },
         tasks: [
           {
             name: 'multi-trial-task',
@@ -148,7 +148,7 @@ describe('runSuites', () => {
       {
         name: 'test-suite',
         file: '/test.eval.ts',
-        options: {},
+        options: { ai: mockAiConfig },
         tasks: [
           {
             name: 'task-1',
@@ -171,7 +171,6 @@ describe('runSuites', () => {
       providers,
     })
 
-    // Two tasks ran, each using tokens
     expect(result.summary.total).toBe(2)
     expect(result.summary.passed).toBe(2)
   })
@@ -186,7 +185,7 @@ describe('runSuites', () => {
       {
         name: 'test-suite',
         file: '/test.eval.ts',
-        options: {},
+        options: { ai: mockAiConfig },
         tasks: [
           {
             name: 'task-1',
@@ -219,13 +218,13 @@ describe('runSuites', () => {
       {
         name: 'suite-1',
         file: '/test1.eval.ts',
-        options: {},
+        options: { ai: mockAiConfig },
         tasks: [{ name: 'task-1', fn: async () => {} }],
       },
       {
         name: 'suite-2',
         file: '/test2.eval.ts',
-        options: {},
+        options: { ai: mockAiConfig },
         tasks: [{ name: 'task-2', fn: async () => {} }],
       },
     ]
@@ -244,7 +243,7 @@ describe('runSuites', () => {
       {
         name: 'test-suite',
         file: '/test.eval.ts',
-        options: {},
+        options: { ai: mockAiConfig },
         tasks: [
           {
             name: 'task-1',

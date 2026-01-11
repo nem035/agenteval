@@ -24,8 +24,8 @@ describe('createEvalContext', () => {
 
     const context = createEvalContext(
       providers,
-      { defaultProvider: 'anthropic', defaultModel: 'test' },
-      { system: 'You are helpful' },
+      {},
+      { ai: { provider: 'anthropic', model: 'test' }, system: 'You are helpful' },
       {},
       graderResults
     )
@@ -43,8 +43,8 @@ describe('createEvalContext', () => {
 
     const context = createEvalContext(
       providers,
-      { defaultProvider: 'anthropic' },
       {},
+      { ai: { provider: 'anthropic', model: 'test' } },
       {},
       graderResults
     )
@@ -53,10 +53,8 @@ describe('createEvalContext', () => {
   })
 
   it('maintains conversation history across calls', async () => {
-    // Track messages at each call time (deep copy to avoid reference issues)
     const callHistory: Array<{ messages: { role: string; content: string }[] }> = []
     const chatMock = vi.fn().mockImplementation((opts) => {
-      // Store a snapshot of messages at call time
       callHistory.push({ messages: JSON.parse(JSON.stringify(opts.messages)) })
       return Promise.resolve({
         content: 'Hello from mock',
@@ -71,8 +69,8 @@ describe('createEvalContext', () => {
 
     const context = createEvalContext(
       providers,
-      { defaultProvider: 'anthropic' },
-      { system: 'Test system' },
+      {},
+      { ai: { provider: 'anthropic', model: 'test' }, system: 'Test system' },
       {},
       graderResults
     )
@@ -80,11 +78,9 @@ describe('createEvalContext', () => {
     await context.ai.chat([{ role: 'user', content: 'First message' }])
     await context.ai.chat([{ role: 'user', content: 'Second message' }])
 
-    // First call has 1 message
     expect(callHistory[0].messages).toHaveLength(1)
     expect(callHistory[0].messages[0].content).toBe('First message')
 
-    // Second call has 3 messages (user1, assistant1, user2)
     expect(callHistory[1].messages).toHaveLength(3)
     expect(callHistory[1].messages[0].content).toBe('First message')
     expect(callHistory[1].messages[1].role).toBe('assistant')
@@ -98,8 +94,8 @@ describe('createEvalContext', () => {
 
     const context = createEvalContext(
       providers,
-      { defaultProvider: 'anthropic' },
-      { system: 'Suite system prompt' },
+      {},
+      { ai: { provider: 'anthropic', model: 'test' }, system: 'Suite system prompt' },
       {},
       graderResults
     )
@@ -110,22 +106,22 @@ describe('createEvalContext', () => {
     expect(call.system).toBe('Suite system prompt')
   })
 
-  it('throws if provider not configured', () => {
+  it('throws if ai not configured', () => {
     const providers = new Map<ProviderName, AIProvider>()
     const graderResults: GraderResult[] = []
 
     expect(() =>
       createEvalContext(
         providers,
-        { defaultProvider: 'anthropic' },
+        {},
         {},
         {},
         graderResults
       )
-    ).toThrow('Provider "anthropic" not configured')
+    ).toThrow('No AI provider configured')
   })
 
-  it('respects eval-level provider override', async () => {
+  it('respects eval-level ai override', async () => {
     const anthropicProvider = createMockProvider()
     const openaiProvider = createMockProvider()
     const providers = new Map<ProviderName, AIProvider>([
@@ -136,9 +132,9 @@ describe('createEvalContext', () => {
 
     const context = createEvalContext(
       providers,
-      { defaultProvider: 'anthropic' },
       {},
-      { provider: 'openai' },
+      { ai: { provider: 'anthropic', model: 'claude' } },
+      { ai: { provider: 'openai', model: 'gpt-4' } },
       graderResults
     )
 

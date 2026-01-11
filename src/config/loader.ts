@@ -49,11 +49,6 @@ export async function loadConfig(cwd: string = process.cwd()): Promise<EvaliteCo
     providers: {
       ...parsed.data.providers,
     },
-    judge: {
-      provider: parsed.data.judge?.provider ?? defaultConfig.defaultProvider,
-      model: parsed.data.judge?.model ?? defaultConfig.defaultModel,
-      ...parsed.data.judge,
-    },
   }
 }
 

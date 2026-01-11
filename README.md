@@ -1,6 +1,6 @@
 # agenteval
 
-Test your AI apps like you test your code. Evalite is a Vitest-like CLI for running evals on LLMs.
+Test your AI apps like you test your code. A Vitest-like CLI for running evals on LLMs.
 
 ```bash
 npm install agenteval
@@ -20,9 +20,10 @@ export OPENAI_API_KEY=your-key
 
 ```typescript
 // my-agent.eval.ts
-import { describe, evalTask as e } from 'agenteval'
+import { describe, evalTask as e, anthropic } from 'agenteval'
 
 describe('my-agent', {
+  ai: anthropic('claude-sonnet-4-20250514'),
   system: 'You are a helpful assistant.',
 }, () => {
 
@@ -46,7 +47,7 @@ npx agenteval run
 Output:
 
 ```
- EVALITE v0.1.0
+ AGENTEVAL v0.1.0
 
  my-agent.eval.ts
    my-agent
@@ -59,29 +60,69 @@ Output:
 
 ---
 
-## Writing Evals
+## Explicit Provider Configuration
 
-### Basic Structure
-
-Every eval file has suites (`describe`) containing tasks (`evalTask`):
+agenteval requires you to explicitly specify which AI provider and model to use. No magic defaults.
 
 ```typescript
-import { describe, evalTask as e } from 'agenteval'
+import { describe, evalTask as e, anthropic, openai } from 'agenteval'
 
-describe('suite-name', {
-  system: 'System prompt goes here',
+// Use Anthropic
+describe('claude-tests', {
+  ai: anthropic('claude-sonnet-4-20250514'),
+  system: 'You are helpful.',
+}, () => { ... })
+
+// Use OpenAI
+describe('gpt-tests', {
+  ai: openai('gpt-4o'),
+  system: 'You are helpful.',
+}, () => { ... })
+```
+
+### Override at Task Level
+
+```typescript
+describe('my-tests', {
+  ai: anthropic('claude-sonnet-4-20250514'),
+  system: 'You are helpful.',
 }, () => {
 
-  e('task name', async ({ ai, expect }) => {
-    const result = await ai.chat([
-      { role: 'user', content: 'User message' }
-    ])
+  // Uses anthropic (inherited from describe)
+  e('test 1', async ({ ai, expect }) => { ... })
 
-    expect(result).toContain('expected text')
+  // Uses openai (override for this task)
+  e('test 2', {
+    ai: openai('gpt-4o'),
+  }, async ({ ai, expect }) => { ... })
+
+})
+```
+
+### Separate AI for Judging
+
+Use a different (potentially smarter) model for LLM-as-judge evaluations:
+
+```typescript
+describe('my-tests', {
+  ai: anthropic('claude-sonnet-4-20250514'),      // AI being tested
+  judge: anthropic('claude-opus-4-20250514'),     // AI that judges
+  system: 'You are helpful.',
+}, () => {
+
+  e('test', async ({ ai, expect }) => {
+    const result = await ai.chat([...])
+
+    // Uses the judge AI
+    await expect(result).toPassJudge('responds helpfully')
   })
 
 })
 ```
+
+---
+
+## Writing Evals
 
 ### Checking Output Contains Text
 
@@ -110,11 +151,7 @@ e('returns a number', async ({ ai, expect }) => {
     { role: 'user', content: 'Pick a number between 1 and 10' }
   ])
 
-  // Regex pattern
   expect(result).toMatch(/\d+/)
-
-  // String pattern (converted to regex)
-  expect(result).toMatch('[0-9]+')
 })
 ```
 
@@ -126,14 +163,13 @@ e('asks clarifying questions', async ({ ai, expect }) => {
     { role: 'user', content: 'Help me with my project' }
   ])
 
-  // Should ask 1-3 questions
   expect(result).toAskQuestions({ min: 1, max: 3 })
 })
 ```
 
 ### Using LLM as Judge
 
-When rules are hard to express in code, use another LLM to judge:
+When rules are hard to express in code:
 
 ```typescript
 e('responds helpfully', async ({ ai, expect }) => {
@@ -141,7 +177,6 @@ e('responds helpfully', async ({ ai, expect }) => {
     { role: 'user', content: 'How do I learn programming?' }
   ])
 
-  // Simple: just pass the criteria
   await expect(result).toPassJudge('gives actionable advice for beginners')
 })
 ```
@@ -150,7 +185,7 @@ With options:
 
 ```typescript
 await expect(result).toPassJudge({
-  prompt: 'Response shows empathy and understanding',
+  criteria: 'Response shows empathy and understanding',
   threshold: 0.8,  // Minimum score (0-1) to pass
 })
 ```
@@ -161,12 +196,8 @@ The `ai.chat` function maintains conversation history:
 
 ```typescript
 e('remembers context', async ({ ai, expect }) => {
-  // First turn
-  await ai.chat([
-    { role: 'user', content: 'My name is Alice' }
-  ])
+  await ai.chat([{ role: 'user', content: 'My name is Alice' }])
 
-  // Second turn - history is preserved
   const result = await ai.chat([
     { role: 'user', content: 'What is my name?' }
   ])
@@ -177,13 +208,11 @@ e('remembers context', async ({ ai, expect }) => {
 
 ### Custom Graders
 
-Write your own grading logic:
-
 ```typescript
 import { defineGrader } from 'agenteval'
 
 const noProfanity = defineGrader('noProfanity', (result) => {
-  const badWords = ['damn', 'hell']  // your list
+  const badWords = ['damn', 'hell']
   const found = badWords.some(w => result.content.toLowerCase().includes(w))
 
   return {
@@ -192,7 +221,6 @@ const noProfanity = defineGrader('noProfanity', (result) => {
   }
 })
 
-// Use it
 e('keeps it clean', async ({ ai, expect }) => {
   const result = await ai.chat([
     { role: 'user', content: 'Tell me a joke' }
@@ -206,16 +234,12 @@ e('keeps it clean', async ({ ai, expect }) => {
 
 ## Configuration
 
-Create `agenteval.config.ts` in your project root:
+Create `agenteval.config.ts` for shared settings:
 
 ```typescript
 import { defineConfig } from 'agenteval'
 
 export default defineConfig({
-  // Provider settings
-  defaultProvider: 'anthropic',  // or 'openai'
-  defaultModel: 'claude-sonnet-4-20250514',
-
   // API keys (or use environment variables)
   providers: {
     anthropic: {
@@ -231,24 +255,16 @@ export default defineConfig({
   exclude: ['node_modules/**'],
 
   // Execution
-  trials: 1,           // Runs per task
-  timeout: 60000,      // 60 seconds per task
-  parallel: true,      // Run tasks in parallel
-  maxConcurrency: 5,   // Max parallel tasks
-
-  // LLM Judge settings
-  judge: {
-    provider: 'anthropic',
-    model: 'claude-sonnet-4-20250514',
-  },
+  trials: 1,
+  timeout: 60000,
+  parallel: true,
+  maxConcurrency: 5,
 })
 ```
 
 ---
 
 ## CLI Reference
-
-### Run Evals
 
 ```bash
 # Run all evals
@@ -257,64 +273,22 @@ agenteval run
 # Run specific file
 agenteval run my-agent.eval.ts
 
-# Run files matching pattern
-agenteval run "**/*chat*.eval.ts"
-
 # Filter by task name
 agenteval run --grep "greeting"
-```
-
-### Output Formats
-
-```bash
-# Pretty console output (default)
-agenteval run
 
 # JSON output for CI
 agenteval run --reporter=json
 
-# Verbose mode (show all grader details)
-agenteval run --verbose
-```
-
-### Cost Control
-
-```bash
 # Stop if cost exceeds $1
 agenteval run --max-cost=1.00
-```
 
-### Multiple Trials
-
-Run each task multiple times for statistical confidence:
-
-```bash
 # Run each task 5 times
 agenteval run --trials=5
-```
 
-A task passes if any trial passes (pass@k logic).
-
-### Override Model
-
-```bash
-# Use a different model
-agenteval run --model=gpt-4o --provider=openai
-```
-
-### Dry Run
-
-See what would run without executing:
-
-```bash
+# See what would run without executing
 agenteval run --dry-run
-```
 
-### Initialize Project
-
-Create config and example files:
-
-```bash
+# Create config and example files
 agenteval init
 ```
 
@@ -322,11 +296,10 @@ agenteval init
 
 ## CI/CD Integration
 
-Evalite returns exit code 1 when tests fail, making it CI-friendly.
-
-### GitHub Actions
+agenteval returns exit code 1 when tests fail.
 
 ```yaml
+# .github/workflows/evals.yml
 name: Evals
 on: [push]
 
@@ -345,176 +318,37 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-### JSON Output
-
-Use `--reporter=json` to get machine-readable output:
-
-```json
-{
-  "success": false,
-  "summary": {
-    "total": 5,
-    "passed": 4,
-    "failed": 1
-  },
-  "suites": [...],
-  "usage": {
-    "inputTokens": 1250,
-    "outputTokens": 340
-  },
-  "costUsd": 0.02
-}
-```
-
----
-
-## Examples
-
-### Testing a Customer Support Bot
-
-```typescript
-import { describe, evalTask as e } from 'agenteval'
-
-describe('support-bot', {
-  system: `You are a customer support agent for Acme Inc.
-Be helpful, empathetic, and professional.
-If you need more information, ask clarifying questions.`,
-}, () => {
-
-  e('handles refund requests', async ({ ai, expect }) => {
-    const result = await ai.chat([
-      { role: 'user', content: 'I want a refund for my order' }
-    ])
-
-    // Should ask for order details
-    expect(result).toAskQuestions({ min: 1 })
-    expect(result).not.toContain('sorry, I cannot')
-  })
-
-  e('stays professional with angry customers', async ({ ai, expect }) => {
-    const result = await ai.chat([
-      { role: 'user', content: 'This is ridiculous! Your product is garbage!' }
-    ])
-
-    await expect(result).toPassJudge('responds calmly and professionally without being defensive')
-    expect(result).not.toContain('calm down')
-  })
-
-  e('escalates when appropriate', async ({ ai, expect }) => {
-    const result = await ai.chat([
-      { role: 'user', content: 'I want to speak to a manager' }
-    ])
-
-    expect(result).toMatch(/escalate|manager|supervisor|human/i)
-  })
-
-})
-```
-
-### Testing a Code Assistant
-
-```typescript
-import { describe, evalTask as e } from 'agenteval'
-
-describe('code-assistant', {
-  system: 'You are a helpful coding assistant. Provide clear, working code.',
-}, () => {
-
-  e('writes valid JavaScript', async ({ ai, expect }) => {
-    const result = await ai.chat([
-      { role: 'user', content: 'Write a function that reverses a string' }
-    ])
-
-    expect(result).toMatch(/function|const|=>/)
-    expect(result).toContain('reverse')
-  })
-
-  e('explains code when asked', async ({ ai, expect }) => {
-    const result = await ai.chat([
-      { role: 'user', content: 'Explain this code: arr.filter(x => x > 0)' }
-    ])
-
-    await expect(result).toPassJudge('explains that filter creates a new array with elements passing the test')
-  })
-
-  e('handles edge cases', async ({ ai, expect }) => {
-    const result = await ai.chat([
-      { role: 'user', content: 'Write a function to divide two numbers' }
-    ])
-
-    // Should mention division by zero
-    expect(result).toMatch(/zero|0|error|undefined/i)
-  })
-
-})
-```
-
-### Testing a Research Assistant
-
-```typescript
-import { describe, evalTask as e } from 'agenteval'
-
-describe('research-assistant', {
-  system: `You are a research assistant.
-Provide accurate, well-sourced information.
-If you're unsure, say so.`,
-}, () => {
-
-  e('admits uncertainty', async ({ ai, expect }) => {
-    const result = await ai.chat([
-      { role: 'user', content: 'What will the stock market do tomorrow?' }
-    ])
-
-    expect(result).toMatch(/cannot predict|uncertain|impossible to know/i)
-  })
-
-  e('provides structured answers', async ({ ai, expect }) => {
-    const result = await ai.chat([
-      { role: 'user', content: 'What are the main causes of climate change?' }
-    ])
-
-    await expect(result).toPassJudge('answer is organized with clear points or sections')
-  })
-
-  e('stays factual', async ({ ai, expect }) => {
-    const result = await ai.chat([
-      { role: 'user', content: 'Is the earth flat?' }
-    ])
-
-    expect(result).toMatch(/spherical|round|globe/i)
-    expect(result).not.toContain('flat earth is correct')
-  })
-
-})
-```
-
 ---
 
 ## API Reference
 
 ### `describe(name, options, fn)`
 
-Create a test suite.
-
 | Option | Type | Description |
 |--------|------|-------------|
-| `system` | `string` | System prompt for all tasks in suite |
-| `model` | `string` | Model to use (overrides config) |
-| `provider` | `'anthropic' \| 'openai'` | Provider to use |
+| `ai` | `AIConfig` | AI provider config (required) - use `anthropic()` or `openai()` |
+| `judge` | `AIConfig` | AI for judging (optional, defaults to `ai`) |
+| `system` | `string` | System prompt for all tasks |
 
 ### `evalTask(name, fn)` or `evalTask(name, options, fn)`
 
-Create a task within a suite.
-
 | Option | Type | Description |
 |--------|------|-------------|
-| `model` | `string` | Model for this task |
-| `provider` | `'anthropic' \| 'openai'` | Provider for this task |
+| `ai` | `AIConfig` | Override AI for this task |
+| `judge` | `AIConfig` | Override judge for this task |
 | `timeout` | `number` | Timeout in ms |
 
-### `ai.chat(messages)`
+### `anthropic(model, options?)` and `openai(model, options?)`
 
-Send messages and get a response.
+```typescript
+anthropic('claude-sonnet-4-20250514')
+anthropic('claude-sonnet-4-20250514', { apiKey: 'sk-...' })
+
+openai('gpt-4o')
+openai('gpt-4o', { apiKey: 'sk-...' })
+```
+
+### `ai.chat(messages)`
 
 ```typescript
 const result = await ai.chat([
@@ -526,8 +360,6 @@ const result = await ai.chat([
 ```
 
 ### `expect(result)`
-
-Assert on the result.
 
 | Method | Description |
 |--------|-------------|

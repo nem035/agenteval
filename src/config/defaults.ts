@@ -10,8 +10,6 @@ export const defaultConfig: Required<
     | 'parallel'
     | 'maxConcurrency'
     | 'reporters'
-    | 'defaultProvider'
-    | 'defaultModel'
   >
 > = {
   include: ['**/*.eval.ts', '**/*.eval.js', '**/*.eval.mts', '**/*.eval.mjs'],
@@ -21,6 +19,4 @@ export const defaultConfig: Required<
   parallel: true,
   maxConcurrency: 5,
   reporters: ['console'],
-  defaultProvider: 'anthropic',
-  defaultModel: 'claude-sonnet-4-20250514',
 }
