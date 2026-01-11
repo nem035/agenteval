@@ -1,0 +1,73 @@
+import { describe, it, expect } from 'vitest'
+import { configSchema } from './schema.js'
+
+describe('configSchema', () => {
+  it('accepts empty config', () => {
+    const result = configSchema.safeParse({})
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts valid full config', () => {
+    const config = {
+      providers: {
+        anthropic: { apiKey: 'test-key' },
+        openai: { apiKey: 'test-key', baseURL: 'https://api.example.com' },
+      },
+      defaultProvider: 'anthropic',
+      defaultModel: 'claude-sonnet-4-20250514',
+      include: ['**/*.eval.ts'],
+      exclude: ['node_modules/**'],
+      trials: 3,
+      timeout: 30000,
+      parallel: true,
+      maxConcurrency: 10,
+      judge: {
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-20250514',
+      },
+      reporters: ['console', 'json'],
+      maxCost: 5.0,
+    }
+
+    const result = configSchema.safeParse(config)
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects invalid provider', () => {
+    const config = {
+      defaultProvider: 'invalid-provider',
+    }
+
+    const result = configSchema.safeParse(config)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects negative trials', () => {
+    const config = {
+      trials: -1,
+    }
+
+    const result = configSchema.safeParse(config)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects invalid reporter', () => {
+    const config = {
+      reporters: ['invalid'],
+    }
+
+    const result = configSchema.safeParse(config)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects invalid baseURL', () => {
+    const config = {
+      providers: {
+        anthropic: { baseURL: 'not-a-url' },
+      },
+    }
+
+    const result = configSchema.safeParse(config)
+    expect(result.success).toBe(false)
+  })
+})
