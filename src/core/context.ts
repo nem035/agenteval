@@ -55,26 +55,31 @@ export function createEvalContext(
   // Conversation history for multi-turn
   const conversationHistory: Message[] = []
 
+  const chat = async (messages: Message[]): Promise<ChatResult> => {
+    // Add new messages to history
+    conversationHistory.push(...messages)
+
+    const result = await provider.chat({
+      model: aiConfig.model,
+      system: suiteOptions.system,
+      messages: conversationHistory,
+      tools: tools.length > 0 ? tools : undefined,
+    })
+
+    // Add assistant response to history for multi-turn
+    conversationHistory.push({
+      role: 'assistant',
+      content: result.content,
+    })
+
+    return result
+  }
+
   return {
     ai: {
-      async chat(messages: Message[]): Promise<ChatResult> {
-        // Add new messages to history
-        conversationHistory.push(...messages)
-
-        const result = await provider.chat({
-          model: aiConfig.model,
-          system: suiteOptions.system,
-          messages: conversationHistory,
-          tools: tools.length > 0 ? tools : undefined,
-        })
-
-        // Add assistant response to history for multi-turn
-        conversationHistory.push({
-          role: 'assistant',
-          content: result.content,
-        })
-
-        return result
+      chat,
+      async prompt(content: string): Promise<ChatResult> {
+        return chat([{ role: 'user', content }])
       },
     },
     expect: (result: ChatResult) => createExpect(result, graderResults, judgeProvider, judgeConfig),

@@ -111,11 +111,11 @@ export interface EvalOptions {
 export interface ExpectInterface {
   not: ExpectInterface
   toolCalls: ToolCallsExpectInterface
-  toContain(text: string, options?: { caseSensitive?: boolean }): void
-  toMatch(pattern: RegExp | string): void
-  toAskQuestions(options: { min?: number; max?: number }): void
-  toPassJudge(criteriaOrOptions: string | { criteria: string; threshold?: number; judge?: AIConfig }): Promise<void>
-  to(grader: (result: ChatResult) => GraderResult | Promise<GraderResult>): void | Promise<void>
+  toContain(text: string, options?: { caseSensitive?: boolean }): ExpectInterface
+  toMatch(pattern: RegExp | string): ExpectInterface
+  toAskQuestions(options: { min?: number; max?: number }): ExpectInterface
+  toPassJudge(criteriaOrOptions: string | { criteria: string; threshold?: number; judge?: AIConfig }): Promise<ExpectInterface>
+  to(grader: (result: ChatResult) => GraderResult | Promise<GraderResult>): ExpectInterface | Promise<ExpectInterface>
 }
 
 export interface ToolCallsExpectInterface {
@@ -128,6 +128,7 @@ export interface ToolCallsExpectInterface {
 export interface EvalContext {
   ai: {
     chat(messages: Message[]): Promise<ChatResult>
+    prompt(content: string): Promise<ChatResult>
   }
   expect: (result: ChatResult) => ExpectInterface
 }

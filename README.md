@@ -28,9 +28,7 @@ describe('my-agent', {
 }, () => {
 
   e('answers questions', async ({ ai, expect }) => {
-    const result = await ai.chat([
-      { role: 'user', content: 'What is 2 + 2?' }
-    ])
+    const result = await ai.prompt('What is 2 + 2?')
 
     expect(result).toContain('4')
   })
@@ -75,7 +73,7 @@ describe('claude-tests', {
 
 // Use OpenAI
 describe('gpt-tests', {
-  ai: openai('gpt-4o'),
+  ai: openai('gpt-5'),
   system: 'You are helpful.',
 }, () => { ... })
 ```
@@ -93,7 +91,7 @@ describe('my-tests', {
 
   // Uses openai (override for this task)
   e('test 2', {
-    ai: openai('gpt-4o'),
+    ai: openai('gpt-5'),
   }, async ({ ai, expect }) => { ... })
 
 })
@@ -111,7 +109,7 @@ describe('my-tests', {
 }, () => {
 
   e('test', async ({ ai, expect }) => {
-    const result = await ai.chat([...])
+    const result = await ai.prompt('How do I learn programming?')
 
     // Uses the judge AI
     await expect(result).toPassJudge('responds helpfully')
@@ -128,9 +126,7 @@ describe('my-tests', {
 
 ```typescript
 e('greets the user', async ({ ai, expect }) => {
-  const result = await ai.chat([
-    { role: 'user', content: 'Hello!' }
-  ])
+  const result = await ai.prompt('Hello!')
 
   // Case insensitive by default
   expect(result).toContain('hello')
@@ -140,6 +136,11 @@ e('greets the user', async ({ ai, expect }) => {
 
   // Negation
   expect(result).not.toContain('error')
+
+  // Fluent chaining
+  expect(result)
+    .toContain('hello')
+    .not.toContain('error')
 })
 ```
 
@@ -147,9 +148,7 @@ e('greets the user', async ({ ai, expect }) => {
 
 ```typescript
 e('returns a number', async ({ ai, expect }) => {
-  const result = await ai.chat([
-    { role: 'user', content: 'Pick a number between 1 and 10' }
-  ])
+  const result = await ai.prompt('Pick a number between 1 and 10')
 
   expect(result).toMatch(/\d+/)
 })
@@ -159,9 +158,7 @@ e('returns a number', async ({ ai, expect }) => {
 
 ```typescript
 e('asks clarifying questions', async ({ ai, expect }) => {
-  const result = await ai.chat([
-    { role: 'user', content: 'Help me with my project' }
-  ])
+  const result = await ai.prompt('Help me with my project')
 
   expect(result).toAskQuestions({ min: 1, max: 3 })
 })
@@ -173,9 +170,7 @@ When rules are hard to express in code:
 
 ```typescript
 e('responds helpfully', async ({ ai, expect }) => {
-  const result = await ai.chat([
-    { role: 'user', content: 'How do I learn programming?' }
-  ])
+  const result = await ai.prompt('How do I learn programming?')
 
   await expect(result).toPassJudge('gives actionable advice for beginners')
 })
@@ -192,15 +187,13 @@ await expect(result).toPassJudge({
 
 ### Multi-Turn Conversations
 
-The `ai.chat` function maintains conversation history:
+Both `ai.prompt()` and `ai.chat()` maintain conversation history:
 
 ```typescript
 e('remembers context', async ({ ai, expect }) => {
-  await ai.chat([{ role: 'user', content: 'My name is Alice' }])
+  await ai.prompt('My name is Alice')
 
-  const result = await ai.chat([
-    { role: 'user', content: 'What is my name?' }
-  ])
+  const result = await ai.prompt('What is my name?')
 
   expect(result).toContain('Alice')
 })
@@ -222,9 +215,7 @@ const noProfanity = defineGrader('noProfanity', (result) => {
 })
 
 e('keeps it clean', async ({ ai, expect }) => {
-  const result = await ai.chat([
-    { role: 'user', content: 'Tell me a joke' }
-  ])
+  const result = await ai.prompt('Tell me a joke')
 
   expect(result).to(noProfanity)
 })
@@ -344,22 +335,39 @@ jobs:
 anthropic('claude-sonnet-4-20250514')
 anthropic('claude-sonnet-4-20250514', { apiKey: 'sk-...' })
 
-openai('gpt-4o')
-openai('gpt-4o', { apiKey: 'sk-...' })
+openai('gpt-5')
+openai('gpt-5', { apiKey: 'sk-...' })
 ```
 
-### `ai.chat(messages)`
+### `ai.prompt(content)` and `ai.chat(messages)`
 
 ```typescript
+// Simple single-turn (recommended)
+const result = await ai.prompt('Hello')
+
+// Full control with messages array
 const result = await ai.chat([
-  { role: 'user', content: 'Hello' }
+  { role: 'user', content: 'Hello' },
+  { role: 'assistant', content: 'Hi!' },
+  { role: 'user', content: 'How are you?' }
 ])
+
+// Both return:
 // result.content - the response text
 // result.toolCalls - any tool calls made
 // result.usage - token counts
 ```
 
 ### `expect(result)`
+
+All assertions support fluent chaining:
+
+```typescript
+expect(result)
+  .toContain('hello')
+  .toMatch(/greeting/)
+  .not.toContain('error')
+```
 
 | Method | Description |
 |--------|-------------|
