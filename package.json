@@ -1,5 +1,5 @@
 {
-  "name": "agenteval",
+  "name": "@nem035/agenteval",
   "version": "0.1.0",
   "description": "A Vitest-like CLI for AI agent evaluations. Test your LLM apps with simple, declarative evals.",
   "type": "module",

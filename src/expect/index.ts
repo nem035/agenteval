@@ -156,7 +156,7 @@ export class Expect {
     return this.negated ? this._toolCalls.not : this._toolCalls
   }
 
-  toContain(text: string, options?: { caseSensitive?: boolean }): void {
+  toContain(text: string, options?: { caseSensitive?: boolean }): this {
     const caseSensitive = options?.caseSensitive ?? false
     const content = caseSensitive ? this.result.content : this.result.content.toLowerCase()
     const searchText = caseSensitive ? text : text.toLowerCase()
@@ -178,9 +178,11 @@ export class Expect {
     if (!pass) {
       throw new ExpectationError(result, 'toContain')
     }
+
+    return this
   }
 
-  toMatch(pattern: RegExp | string): void {
+  toMatch(pattern: RegExp | string): this {
     const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern
     const matches = regex.test(this.result.content)
     const pass = this.negated ? !matches : matches
@@ -199,9 +201,11 @@ export class Expect {
     if (!pass) {
       throw new ExpectationError(result, 'toMatch')
     }
+
+    return this
   }
 
-  toAskQuestions(options: { min?: number; max?: number }): void {
+  toAskQuestions(options: { min?: number; max?: number }): this {
     const { min = 0, max = Infinity } = options
     const questionCount = (this.result.content.match(/\?/g) || []).length
 
@@ -220,9 +224,11 @@ export class Expect {
     if (!pass) {
       throw new ExpectationError(result, 'toAskQuestions')
     }
+
+    return this
   }
 
-  async toPassJudge(criteriaOrOptions: string | JudgeOptions): Promise<void> {
+  async toPassJudge(criteriaOrOptions: string | JudgeOptions): Promise<this> {
     if (!this.judgeProvider) {
       throw new Error('LLM judge not configured. Make sure provider API keys are set.')
     }
@@ -294,13 +300,15 @@ ${this.result.content}
     if (!pass) {
       throw new ExpectationError(result, 'toPassJudge')
     }
+
+    return this
   }
 
-  to(grader: (result: ChatResult) => GraderResult | Promise<GraderResult>): Promise<void>
-  to(grader: (result: ChatResult) => GraderResult): void
+  to(grader: (result: ChatResult) => GraderResult | Promise<GraderResult>): Promise<this>
+  to(grader: (result: ChatResult) => GraderResult): this
   to(
     grader: (result: ChatResult) => GraderResult | Promise<GraderResult>
-  ): void | Promise<void> {
+  ): this | Promise<this> {
     const graderResult = grader(this.result)
 
     if (graderResult instanceof Promise) {
@@ -316,6 +324,8 @@ ${this.result.content}
         if (!pass) {
           throw new ExpectationError(finalResult, 'custom')
         }
+
+        return this
       })
     }
 
@@ -333,6 +343,8 @@ ${this.result.content}
     if (!pass) {
       throw new ExpectationError(finalResult, 'custom')
     }
+
+    return this
   }
 }
 

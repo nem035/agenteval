@@ -143,4 +143,60 @@ describe('createEvalContext', () => {
     expect(openaiProvider.chat).toHaveBeenCalled()
     expect(anthropicProvider.chat).not.toHaveBeenCalled()
   })
+
+  it('ai.prompt wraps content in user message', async () => {
+    const mockProvider = createMockProvider()
+    const providers = new Map<ProviderName, AIProvider>([['anthropic', mockProvider]])
+    const graderResults: GraderResult[] = []
+
+    const context = createEvalContext(
+      providers,
+      {},
+      { ai: { provider: 'anthropic', model: 'test' } },
+      {},
+      graderResults
+    )
+
+    const result = await context.ai.prompt('Hello!')
+
+    expect(result.content).toBe('Hello from mock')
+    const call = (mockProvider.chat as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    // First message is the user prompt
+    expect(call.messages[0]).toEqual({ role: 'user', content: 'Hello!' })
+  })
+
+  it('ai.prompt maintains conversation history', async () => {
+    const callHistory: Array<{ messages: { role: string; content: string }[] }> = []
+    const chatMock = vi.fn().mockImplementation((opts) => {
+      callHistory.push({ messages: JSON.parse(JSON.stringify(opts.messages)) })
+      return Promise.resolve({
+        content: 'Hello from mock',
+        toolCalls: [],
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+      })
+    })
+
+    const mockProvider: AIProvider = { chat: chatMock }
+    const providers = new Map<ProviderName, AIProvider>([['anthropic', mockProvider]])
+    const graderResults: GraderResult[] = []
+
+    const context = createEvalContext(
+      providers,
+      {},
+      { ai: { provider: 'anthropic', model: 'test' } },
+      {},
+      graderResults
+    )
+
+    await context.ai.prompt('First message')
+    await context.ai.prompt('Second message')
+
+    expect(callHistory[0].messages).toHaveLength(1)
+    expect(callHistory[0].messages[0].content).toBe('First message')
+
+    expect(callHistory[1].messages).toHaveLength(3)
+    expect(callHistory[1].messages[0].content).toBe('First message')
+    expect(callHistory[1].messages[1].role).toBe('assistant')
+    expect(callHistory[1].messages[2].content).toBe('Second message')
+  })
 })

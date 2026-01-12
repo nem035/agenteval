@@ -275,4 +275,50 @@ describe('expect', () => {
       expect(graderResults[0].pass).toBe(true)
     })
   })
+
+  describe('fluent chaining', () => {
+    it('supports chaining toContain calls', () => {
+      const result = makeChatResult('Hello World!')
+      const e = createExpect(result, graderResults)
+
+      e.toContain('hello').toContain('world')
+
+      expect(graderResults).toHaveLength(2)
+      expect(graderResults[0].pass).toBe(true)
+      expect(graderResults[1].pass).toBe(true)
+    })
+
+    it('supports chaining toContain with toMatch', () => {
+      const result = makeChatResult('Hello World 123!')
+      const e = createExpect(result, graderResults)
+
+      e.toContain('hello').toMatch(/\d+/)
+
+      expect(graderResults).toHaveLength(2)
+      expect(graderResults[0].pass).toBe(true)
+      expect(graderResults[1].pass).toBe(true)
+    })
+
+    it('supports chaining with not', () => {
+      const result = makeChatResult('Hello World!')
+      const e = createExpect(result, graderResults)
+
+      e.toContain('hello').not.toContain('goodbye')
+
+      expect(graderResults).toHaveLength(2)
+      expect(graderResults[0].pass).toBe(true)
+      expect(graderResults[1].pass).toBe(true)
+    })
+
+    it('throws on first failing assertion in chain', () => {
+      const result = makeChatResult('Hello World!')
+      const e = createExpect(result, graderResults)
+
+      expect(() => e.toContain('hello').toContain('xyz').toContain('world')).toThrow(ExpectationError)
+
+      expect(graderResults).toHaveLength(2)
+      expect(graderResults[0].pass).toBe(true)
+      expect(graderResults[1].pass).toBe(false)
+    })
+  })
 })
