@@ -2,7 +2,7 @@ import { writeFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import pc from 'picocolors'
 
-const CONFIG_TEMPLATE = `import { defineConfig } from 'agenteval'
+const CONFIG_TEMPLATE = `import { defineConfig } from '@nem035/agentevals'
 
 export default defineConfig({
   // Provider configuration
@@ -42,7 +42,7 @@ export default defineConfig({
 })
 `
 
-const EXAMPLE_EVAL_TEMPLATE = `import { describe, eval, expect } from 'agenteval'
+const EXAMPLE_EVAL_TEMPLATE = `import { describe, eval, expect } from '@nem035/agentevals'
 
 describe('example-agent', {
   system: 'You are a helpful assistant.',
@@ -84,12 +84,12 @@ export async function initCommand(): Promise<number> {
   console.log()
 
   // Create config file
-  const configPath = resolve(cwd, 'agenteval.config.ts')
+  const configPath = resolve(cwd, 'agentevals.config.ts')
   if (existsSync(configPath)) {
-    console.log(pc.yellow('  ⚠ agenteval.config.ts already exists, skipping'))
+    console.log(pc.yellow('  ⚠ agentevals.config.ts already exists, skipping'))
   } else {
     writeFileSync(configPath, CONFIG_TEMPLATE)
-    console.log(pc.green('  ✓ Created agenteval.config.ts'))
+    console.log(pc.green('  ✓ Created agentevals.config.ts'))
   }
 
   // Create example eval file
@@ -107,7 +107,7 @@ export async function initCommand(): Promise<number> {
   console.log('     export ANTHROPIC_API_KEY=your-key')
   console.log()
   console.log(pc.dim('  2. Run the example eval:'))
-  console.log('     npx agenteval run')
+  console.log('     npx agentevals run')
   console.log()
 
   return 0

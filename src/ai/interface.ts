@@ -31,7 +31,7 @@ export function createProvider(
 }
 
 /**
- * Create providers from agenteval config
+ * Create providers from agentevals config
  */
 export function createProvidersFromConfig(
   config: EvaliteConfig

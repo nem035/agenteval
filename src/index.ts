@@ -4,8 +4,11 @@ export { describe, evalTask as eval, evalTask, test, it } from './core/registry.
 // Provider helpers
 export { anthropic, openai, type AIConfig } from './providers.js'
 
+// Tool helpers
+export { defineTool, createMockExecutor, createSpyExecutor } from './tools.js'
+
 // Expect & Graders
-export { createExpect, Expect, ExpectationError } from './expect/index.js'
+export { createExpect, Expect, ExpectationError, matchers } from './expect/index.js'
 export { defineGrader, type GraderFn, type CustomGrader } from './graders/custom.js'
 
 // Config

@@ -1,12 +1,12 @@
 {
-  "name": "@nem035/agenteval",
+  "name": "@nem035/agentevals",
   "version": "0.1.0",
   "description": "A Vitest-like CLI for AI agent evaluations. Test your LLM apps with simple, declarative evals.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "agenteval": "./bin/agenteval.js"
+    "agentevals": "./bin/agentevals.js"
   },
   "exports": {
     ".": {
@@ -47,12 +47,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nem035/agenteval.git"
+    "url": "git+https://github.com/nem035/agentevals.git"
   },
   "bugs": {
-    "url": "https://github.com/nem035/agenteval/issues"
+    "url": "https://github.com/nem035/agentevals/issues"
   },
-  "homepage": "https://github.com/nem035/agenteval#readme",
+  "homepage": "https://github.com/nem035/agentevals#readme",
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.0",
     "@ai-sdk/openai": "^3.0.0",

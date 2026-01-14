@@ -6,10 +6,10 @@ import { defaultConfig } from './defaults.js'
 import type { EvaliteConfig } from '../types.js'
 
 const CONFIG_FILES = [
-  'agenteval.config.ts',
-  'agenteval.config.mts',
-  'agenteval.config.js',
-  'agenteval.config.mjs',
+  'agentevals.config.ts',
+  'agentevals.config.mts',
+  'agentevals.config.js',
+  'agentevals.config.mjs',
 ]
 
 export async function loadConfig(cwd: string = process.cwd()): Promise<EvaliteConfig> {
@@ -39,7 +39,7 @@ export async function loadConfig(cwd: string = process.cwd()): Promise<EvaliteCo
     const errors = parsed.error.errors
       .map((e) => `  - ${e.path.join('.')}: ${e.message}`)
       .join('\n')
-    throw new Error(`Invalid agenteval config:\n${errors}`)
+    throw new Error(`Invalid agentevals config:\n${errors}`)
   }
 
   // Merge with defaults

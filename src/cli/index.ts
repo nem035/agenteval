@@ -6,7 +6,7 @@ import { initCommand } from './commands/init.js'
 const program = new Command()
 
 program
-  .name('agenteval')
+  .name('agentevals')
   .description('A Vitest-like CLI for AI agent evaluations')
   .version('0.1.0')
 
@@ -30,7 +30,7 @@ program
 
 program
   .command('init')
-  .description('Initialize agenteval in the current directory')
+  .description('Initialize agentevals in the current directory')
   .action(async () => {
     const exitCode = await initCommand()
     process.exit(exitCode)

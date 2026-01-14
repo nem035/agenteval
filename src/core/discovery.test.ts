@@ -8,7 +8,7 @@ describe('discoverEvalFiles', () => {
   let testDir: string
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `agenteval-test-${Date.now()}`)
+    testDir = join(tmpdir(), `agentevals-test-${Date.now()}`)
     mkdirSync(testDir, { recursive: true })
   })
 

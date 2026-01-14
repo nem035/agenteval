@@ -10,6 +10,135 @@ export class ExpectationError extends Error {
   }
 }
 
+// ============================================================================
+// Matcher Types & Utilities
+// ============================================================================
+
+/** Symbol to identify matcher objects */
+const MATCHER_SYMBOL = Symbol('matcher')
+
+/** Base interface for all matchers */
+interface Matcher {
+  [MATCHER_SYMBOL]: true
+  match(value: unknown): boolean
+  description(): string
+}
+
+/** Check if a value is a matcher */
+function isMatcher(value: unknown): value is Matcher {
+  return typeof value === 'object' && value !== null && MATCHER_SYMBOL in value
+}
+
+/**
+ * Match objects that contain at least the specified properties
+ */
+function objectContaining(expected: Record<string, unknown>): Matcher {
+  return {
+    [MATCHER_SYMBOL]: true,
+    match(value: unknown): boolean {
+      if (typeof value !== 'object' || value === null) return false
+      const obj = value as Record<string, unknown>
+      return Object.entries(expected).every(([key, expectedVal]) => {
+        const actualVal = obj[key]
+        return matchValue(actualVal, expectedVal)
+      })
+    },
+    description() {
+      return `objectContaining(${JSON.stringify(expected)})`
+    },
+  }
+}
+
+/**
+ * Match arrays that contain all specified elements (in any order)
+ */
+function arrayContaining(expected: unknown[]): Matcher {
+  return {
+    [MATCHER_SYMBOL]: true,
+    match(value: unknown): boolean {
+      if (!Array.isArray(value)) return false
+      return expected.every((expectedItem) =>
+        value.some((actualItem) => matchValue(actualItem, expectedItem))
+      )
+    },
+    description() {
+      return `arrayContaining(${JSON.stringify(expected)})`
+    },
+  }
+}
+
+/**
+ * Match strings that match the given pattern
+ */
+function stringMatching(pattern: RegExp | string): Matcher {
+  const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern
+  return {
+    [MATCHER_SYMBOL]: true,
+    match(value: unknown): boolean {
+      if (typeof value !== 'string') return false
+      return regex.test(value)
+    },
+    description() {
+      return `stringMatching(${regex})`
+    },
+  }
+}
+
+/**
+ * Match any value (always passes)
+ */
+function anything(): Matcher {
+  return {
+    [MATCHER_SYMBOL]: true,
+    match(): boolean {
+      return true
+    },
+    description() {
+      return 'anything()'
+    },
+  }
+}
+
+/**
+ * Match a value using a matcher or strict equality
+ */
+function matchValue(actual: unknown, expected: unknown): boolean {
+  if (isMatcher(expected)) {
+    return expected.match(actual)
+  }
+
+  // Deep equality check
+  if (typeof expected === 'object' && expected !== null) {
+    if (typeof actual !== 'object' || actual === null) return false
+
+    if (Array.isArray(expected)) {
+      if (!Array.isArray(actual)) return false
+      if (actual.length !== expected.length) return false
+      return expected.every((item, i) => matchValue(actual[i], item))
+    }
+
+    const expectedObj = expected as Record<string, unknown>
+    const actualObj = actual as Record<string, unknown>
+    const keys = Object.keys(expectedObj)
+
+    return keys.every((key) => matchValue(actualObj[key], expectedObj[key]))
+  }
+
+  return actual === expected
+}
+
+/** Export matchers for use in tests */
+export const matchers = {
+  objectContaining,
+  arrayContaining,
+  stringMatching,
+  anything,
+}
+
+// ============================================================================
+// Tool Call Assertions
+// ============================================================================
+
 export class ToolCallsExpect {
   private negated: boolean = false
 
@@ -24,7 +153,76 @@ export class ToolCallsExpect {
     return instance
   }
 
-  toInclude(toolName: string): void {
+  /**
+   * Assert that any tool was called
+   */
+  toHaveBeenCalled(): this {
+    const called = this.toolCalls.length > 0
+    const pass = this.negated ? !called : called
+    const reason = this.negated
+      ? called
+        ? `Expected no tools to be called, but ${this.toolCalls.length} were called: ${this.toolCalls.map((t) => t.name).join(', ')}`
+        : 'No tools were called (as expected)'
+      : called
+        ? `Tools were called: ${this.toolCalls.map((t) => t.name).join(', ')}`
+        : 'Expected at least one tool to be called, but none were'
+
+    const result: GraderResult = { pass, reason }
+    this.graderResults.push(result)
+
+    if (!pass) {
+      throw new ExpectationError(result, 'toolCalls.toHaveBeenCalled')
+    }
+
+    return this
+  }
+
+  /**
+   * Assert the number of times a tool was called
+   */
+  toHaveCallCount(count: number): this
+  toHaveCallCount(toolName: string, count: number): this
+  toHaveCallCount(toolNameOrCount: string | number, maybeCount?: number): this {
+    let toolName: string | undefined
+    let expectedCount: number
+
+    if (typeof toolNameOrCount === 'number') {
+      expectedCount = toolNameOrCount
+    } else {
+      toolName = toolNameOrCount
+      expectedCount = maybeCount!
+    }
+
+    const actualCount = toolName
+      ? this.toolCalls.filter((tc) => tc.name === toolName).length
+      : this.toolCalls.length
+
+    const countMatches = actualCount === expectedCount
+    const pass = this.negated ? !countMatches : countMatches
+
+    const subject = toolName ? `Tool "${toolName}"` : 'Tools'
+    const reason = this.negated
+      ? countMatches
+        ? `Expected ${subject} NOT to be called ${expectedCount} time(s), but it was`
+        : `${subject} was called ${actualCount} time(s), not ${expectedCount} (as expected)`
+      : countMatches
+        ? `${subject} was called ${expectedCount} time(s)`
+        : `Expected ${subject} to be called ${expectedCount} time(s), but was called ${actualCount} time(s)`
+
+    const result: GraderResult = { pass, reason }
+    this.graderResults.push(result)
+
+    if (!pass) {
+      throw new ExpectationError(result, 'toolCalls.toHaveCallCount')
+    }
+
+    return this
+  }
+
+  /**
+   * Assert that a specific tool was called
+   */
+  toInclude(toolName: string): this {
     const found = this.toolCalls.some((tc) => tc.name === toolName)
     const pass = this.negated ? !found : found
     const reason = this.negated
@@ -41,9 +239,15 @@ export class ToolCallsExpect {
     if (!pass) {
       throw new ExpectationError(result, 'toolCalls.toInclude')
     }
+
+    return this
   }
 
-  toHaveArgs(toolName: string, expectedArgs: Record<string, unknown>): void {
+  /**
+   * Assert that a tool was called with specific arguments.
+   * Supports matchers like objectContaining(), arrayContaining(), stringMatching()
+   */
+  toHaveArgs(toolName: string, expectedArgs: Record<string, unknown>): this {
     const call = this.toolCalls.find((tc) => tc.name === toolName)
 
     if (!call) {
@@ -57,22 +261,22 @@ export class ToolCallsExpect {
       if (!result.pass) {
         throw new ExpectationError(result, 'toolCalls.toHaveArgs')
       }
-      return
+      return this
     }
 
-    const argsMatch = Object.entries(expectedArgs).every(([key, value]) => {
-      const actual = call.arguments[key]
-      return JSON.stringify(actual) === JSON.stringify(value)
-    })
+    const argsMatch = matchValue(call.arguments, expectedArgs)
 
     const pass = this.negated ? !argsMatch : argsMatch
+    const expectedStr = Object.entries(expectedArgs)
+      .map(([k, v]) => `${k}: ${isMatcher(v) ? v.description() : JSON.stringify(v)}`)
+      .join(', ')
     const reason = this.negated
       ? argsMatch
-        ? `Expected tool "${toolName}" NOT to have args ${JSON.stringify(expectedArgs)}`
+        ? `Expected tool "${toolName}" NOT to have args {${expectedStr}}`
         : `Tool "${toolName}" has different args (as expected)`
       : argsMatch
-        ? `Tool "${toolName}" called with correct args`
-        : `Tool "${toolName}" called with different args. Expected: ${JSON.stringify(expectedArgs)}, Got: ${JSON.stringify(call.arguments)}`
+        ? `Tool "${toolName}" called with expected args`
+        : `Tool "${toolName}" called with different args. Expected: {${expectedStr}}, Got: ${JSON.stringify(call.arguments)}`
 
     const result: GraderResult = { pass, reason }
     this.graderResults.push(result)
@@ -80,9 +284,14 @@ export class ToolCallsExpect {
     if (!pass) {
       throw new ExpectationError(result, 'toolCalls.toHaveArgs')
     }
+
+    return this
   }
 
-  toHaveResult(toolName: string, expectedResult: unknown): void {
+  /**
+   * Assert that a tool returned a specific result
+   */
+  toHaveResult(toolName: string, expectedResult: unknown): this {
     const call = this.toolCalls.find((tc) => tc.name === toolName)
 
     if (!call) {
@@ -94,7 +303,7 @@ export class ToolCallsExpect {
       if (!result.pass) {
         throw new ExpectationError(result, 'toolCalls.toHaveResult')
       }
-      return
+      return this
     }
 
     if (call.result === undefined) {
@@ -106,23 +315,32 @@ export class ToolCallsExpect {
       if (!result.pass) {
         throw new ExpectationError(result, 'toolCalls.toHaveResult')
       }
-      return
+      return this
     }
 
-    const resultMatches = JSON.stringify(call.result) === JSON.stringify(expectedResult)
+    const resultMatches = matchValue(call.result, expectedResult)
     const pass = this.negated ? !resultMatches : resultMatches
 
     const graderResult: GraderResult = {
       pass,
       reason: pass
         ? `Tool "${toolName}" returned expected result`
-        : `Tool "${toolName}" returned different result. Expected: ${JSON.stringify(expectedResult)}, Got: ${JSON.stringify(call.result)}`,
+        : `Tool "${toolName}" returned different result. Expected: ${isMatcher(expectedResult) ? expectedResult.description() : JSON.stringify(expectedResult)}, Got: ${JSON.stringify(call.result)}`,
     }
     this.graderResults.push(graderResult)
 
     if (!pass) {
       throw new ExpectationError(graderResult, 'toolCalls.toHaveResult')
     }
+
+    return this
+  }
+
+  /**
+   * Get all calls to a specific tool
+   */
+  getCalls(toolName?: string): ToolCall[] {
+    return toolName ? this.toolCalls.filter((tc) => tc.name === toolName) : this.toolCalls
   }
 }
 

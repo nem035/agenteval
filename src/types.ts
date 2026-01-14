@@ -1,5 +1,5 @@
 /**
- * Core types for agenteval
+ * Core types for agentevals
  */
 
 import type { AIConfig } from './providers.js'
@@ -120,9 +120,13 @@ export interface ExpectInterface {
 
 export interface ToolCallsExpectInterface {
   not: ToolCallsExpectInterface
-  toInclude(toolName: string): void
-  toHaveArgs(toolName: string, expectedArgs: Record<string, unknown>): void
-  toHaveResult(toolName: string, expectedResult: unknown): void
+  toHaveBeenCalled(): ToolCallsExpectInterface
+  toHaveCallCount(count: number): ToolCallsExpectInterface
+  toHaveCallCount(toolName: string, count: number): ToolCallsExpectInterface
+  toInclude(toolName: string): ToolCallsExpectInterface
+  toHaveArgs(toolName: string, expectedArgs: Record<string, unknown>): ToolCallsExpectInterface
+  toHaveResult(toolName: string, expectedResult: unknown): ToolCallsExpectInterface
+  getCalls(toolName?: string): ToolCall[]
 }
 
 export interface EvalContext {

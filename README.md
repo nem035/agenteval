@@ -1,9 +1,9 @@
-# agenteval
+# agentevals
 
 Test your AI apps like you test your code. A Vitest-like CLI for running evals on LLMs.
 
 ```bash
-npm install agenteval
+npm install @nem035/agentevals
 ```
 
 ## Quick Start
@@ -20,7 +20,7 @@ export OPENAI_API_KEY=your-key
 
 ```typescript
 // my-agent.eval.ts
-import { describe, evalTask as e, anthropic } from 'agenteval'
+import { describe, evalTask as e, anthropic } from '@nem035/agentevals'
 
 describe('my-agent', {
   ai: anthropic('claude-sonnet-4-20250514'),
@@ -39,13 +39,13 @@ describe('my-agent', {
 **3. Run it**
 
 ```bash
-npx agenteval run
+npx agentevals run
 ```
 
 Output:
 
 ```
- AGENTEVAL v0.1.0
+ AGENTEVALSv0.1.0
 
  my-agent.eval.ts
    my-agent
@@ -63,7 +63,7 @@ Output:
 ### Chatbot Testing
 
 ```typescript
-import { describe, evalTask as e, anthropic } from 'agenteval'
+import { describe, evalTask as e, anthropic } from '@nem035/agentevals'
 
 describe('customer-service-bot', {
   ai: anthropic('claude-sonnet-4-20250514'),
@@ -115,7 +115,7 @@ Be helpful, friendly, and concise. If you don't know something, say so.`,
 ### Code Assistant Testing
 
 ```typescript
-import { describe, evalTask as e, anthropic } from 'agenteval'
+import { describe, evalTask as e, anthropic } from '@nem035/agentevals'
 
 describe('code-assistant', {
   ai: anthropic('claude-sonnet-4-20250514'),
@@ -173,7 +173,7 @@ const query = "SELECT * FROM users WHERE id = " + userId`)
 ### Q&A / RAG Testing
 
 ```typescript
-import { describe, evalTask as e, anthropic } from 'agenteval'
+import { describe, evalTask as e, anthropic } from '@nem035/agentevals'
 
 describe('knowledge-base-qa', {
   ai: anthropic('claude-sonnet-4-20250514'),
@@ -220,7 +220,7 @@ Context:
 ### Safety & Guardrails Testing
 
 ```typescript
-import { describe, evalTask as e, anthropic, defineGrader } from 'agenteval'
+import { describe, evalTask as e, anthropic, defineGrader } from '@nem035/agentevals'
 
 // Custom grader for PII detection
 const noPII = defineGrader('noPII', (result) => {
@@ -278,7 +278,7 @@ describe('safety-guardrails', {
 ### Model Comparison Testing
 
 ```typescript
-import { describe, evalTask as e, anthropic, openai } from 'agenteval'
+import { describe, evalTask as e, anthropic, openai } from '@nem035/agentevals'
 
 describe('claude-math', {
   ai: anthropic('claude-sonnet-4-20250514'),
@@ -328,7 +328,7 @@ describe('model-comparison', {
 ### Writing Assistant Testing
 
 ```typescript
-import { describe, evalTask as e, anthropic } from 'agenteval'
+import { describe, evalTask as e, anthropic } from '@nem035/agentevals'
 
 describe('writing-assistant', {
   ai: anthropic('claude-sonnet-4-20250514'),
@@ -381,7 +381,7 @@ describe('writing-assistant', {
 ### Structured Output Testing
 
 ```typescript
-import { describe, evalTask as e, anthropic } from 'agenteval'
+import { describe, evalTask as e, anthropic } from '@nem035/agentevals'
 
 describe('structured-output', {
   ai: anthropic('claude-sonnet-4-20250514'),
@@ -433,7 +433,7 @@ Address:
 ### Conversation Flow Testing
 
 ```typescript
-import { describe, evalTask as e, anthropic } from 'agenteval'
+import { describe, evalTask as e, anthropic } from '@nem035/agentevals'
 
 describe('appointment-booking-flow', {
   ai: anthropic('claude-sonnet-4-20250514'),
@@ -486,10 +486,10 @@ Confirm details before finalizing.`,
 
 ## Explicit Provider Configuration
 
-agenteval requires you to explicitly specify which AI provider and model to use. No magic defaults.
+agentevals requires you to explicitly specify which AI provider and model to use. No magic defaults.
 
 ```typescript
-import { describe, evalTask as e, anthropic, openai } from 'agenteval'
+import { describe, evalTask as e, anthropic, openai } from '@nem035/agentevals'
 
 // Use Anthropic
 describe('claude-tests', {
@@ -600,7 +600,7 @@ await expect(result).toPassJudge({
 ### `to(graderFn)` - Custom Graders
 
 ```typescript
-import { defineGrader } from 'agenteval'
+import { defineGrader } from '@nem035/agentevals'
 
 const isPolite = defineGrader('isPolite', (result) => {
   const politeWords = ['please', 'thank', 'appreciate']
@@ -612,6 +612,107 @@ const isPolite = defineGrader('isPolite', (result) => {
 })
 
 expect(result).to(isPolite)
+```
+
+### Tool Call Testing
+
+Test that your AI correctly uses tools/functions:
+
+```typescript
+import { describe, evalTask as e, anthropic, defineTool, matchers } from '@nem035/agentevals'
+
+// Define a tool
+const getWeather = defineTool('getWeather', {
+  description: 'Get the current weather for a location',
+  parameters: [
+    { name: 'location', type: 'string', required: true },
+    { name: 'units', type: 'string', required: false },
+  ],
+  execute: async ({ location }) => ({ temp: 72, condition: 'sunny', location }),
+})
+
+describe('weather-agent', {
+  ai: anthropic('claude-sonnet-4-20250514'),
+  system: 'You are a weather assistant. Use the getWeather tool to answer questions.',
+  tools: [getWeather],
+}, () => {
+
+  e('uses weather tool', async ({ ai, expect }) => {
+    const result = await ai.prompt('What is the weather in Tokyo?')
+
+    // Check tool was called
+    expect(result).toolCalls.toInclude('getWeather')
+
+    // Check arguments
+    expect(result).toolCalls.toHaveArgs('getWeather', {
+      location: matchers.stringMatching(/tokyo/i),
+    })
+
+    // Check result
+    expect(result).toolCalls.toHaveResult('getWeather', matchers.objectContaining({
+      location: 'Tokyo',
+    }))
+  })
+
+  e('does not call tool for non-weather questions', async ({ ai, expect }) => {
+    const result = await ai.prompt('What is 2 + 2?')
+
+    expect(result).toolCalls.not.toHaveBeenCalled()
+  })
+
+})
+```
+
+### Tool Call Assertions
+
+```typescript
+// Check if any tool was called
+expect(result).toolCalls.toHaveBeenCalled()
+expect(result).toolCalls.not.toHaveBeenCalled()
+
+// Check if specific tool was called
+expect(result).toolCalls.toInclude('toolName')
+
+// Check call count
+expect(result).toolCalls.toHaveCallCount(2)  // total calls
+expect(result).toolCalls.toHaveCallCount('toolName', 1)  // specific tool
+
+// Check arguments with matchers
+expect(result).toolCalls.toHaveArgs('toolName', {
+  exact: 'value',
+  partial: matchers.objectContaining({ key: 'value' }),
+  pattern: matchers.stringMatching(/regex/),
+  array: matchers.arrayContaining(['item1', 'item2']),
+  any: matchers.anything(),
+})
+
+// Check tool result
+expect(result).toolCalls.toHaveResult('toolName', expectedResult)
+
+// Get raw calls for custom assertions
+const calls = expect(result).toolCalls.getCalls('toolName')
+```
+
+### Mock Executors
+
+```typescript
+import { defineTool, createMockExecutor, createSpyExecutor } from '@nem035/agentevals'
+
+// Mock executor - returns fixed value and tracks calls
+const mockExecute = createMockExecutor({ success: true, data: 'mocked' })
+const myTool = defineTool('myTool', {
+  description: 'A tool',
+  parameters: [{ name: 'input', type: 'string', required: true }],
+  execute: mockExecute,
+})
+
+// After running eval, check mock was called correctly
+expect(mockExecute.calls).toHaveLength(1)
+expect(mockExecute.calls[0]).toEqual({ input: 'test' })
+
+// Spy executor - wraps real function and tracks calls
+const realFn = async (args) => fetchData(args.id)
+const spyExecute = createSpyExecutor(realFn)
 ```
 
 ### Fluent Chaining
@@ -630,10 +731,10 @@ expect(result)
 
 ## Configuration
 
-Create `agenteval.config.ts` for shared settings:
+Create `agentevals.config.ts` for shared settings:
 
 ```typescript
-import { defineConfig } from 'agenteval'
+import { defineConfig } from '@nem035/agentevals'
 
 export default defineConfig({
   // API keys (or use environment variables)
@@ -664,35 +765,35 @@ export default defineConfig({
 
 ```bash
 # Run all evals
-agenteval run
+agentevals run
 
 # Run specific file
-agenteval run my-agent.eval.ts
+agentevals run my-agent.eval.ts
 
 # Filter by task name
-agenteval run --grep "greeting"
+agentevals run --grep "greeting"
 
 # JSON output for CI
-agenteval run --reporter=json
+agentevals run --reporter=json
 
 # Stop if cost exceeds $1
-agenteval run --max-cost=1.00
+agentevals run --max-cost=1.00
 
 # Run each task 5 times
-agenteval run --trials=5
+agentevals run --trials=5
 
 # See what would run without executing
-agenteval run --dry-run
+agentevals run --dry-run
 
 # Create config and example files
-agenteval init
+agentevals init
 ```
 
 ---
 
 ## CI/CD Integration
 
-agenteval returns exit code 1 when tests fail.
+agentevals returns exit code 1 when tests fail.
 
 ```yaml
 # .github/workflows/evals.yml
@@ -709,7 +810,7 @@ jobs:
           node-version: 20
 
       - run: npm install
-      - run: npx agenteval run --reporter=json --max-cost=5.00
+      - run: npx agentevals run --reporter=json --max-cost=5.00
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
@@ -725,6 +826,7 @@ jobs:
 | `ai` | `AIConfig` | AI provider config (required) - use `anthropic()` or `openai()` |
 | `judge` | `AIConfig` | AI for judging (optional, defaults to `ai`) |
 | `system` | `string` | System prompt for all tasks |
+| `tools` | `ToolWithExecutor[]` | Tools available to the AI |
 
 ### `evalTask(name, fn)` or `evalTask(name, options, fn)`
 
@@ -773,6 +875,49 @@ const result = await ai.chat([
 | `.toPassJudge(criteria)` | LLM judges output passes |
 | `.to(graderFn)` | Custom grader function |
 | `.not.*` | Negate any assertion |
+| `.toolCalls.*` | Tool call assertions (see below) |
+
+### `expect(result).toolCalls`
+
+| Method | Description |
+|--------|-------------|
+| `.toHaveBeenCalled()` | Any tool was called |
+| `.toInclude(name)` | Specific tool was called |
+| `.toHaveCallCount(n)` | Total call count |
+| `.toHaveCallCount(name, n)` | Tool-specific call count |
+| `.toHaveArgs(name, args)` | Tool called with args |
+| `.toHaveResult(name, result)` | Tool returned result |
+| `.getCalls(name?)` | Get raw call data |
+| `.not.*` | Negate any assertion |
+
+### `defineTool(name, options)`
+
+```typescript
+import { defineTool } from '@nem035/agentevals'
+
+const myTool = defineTool('myTool', {
+  description: 'What the tool does',
+  parameters: [
+    { name: 'arg1', type: 'string', required: true },
+    { name: 'arg2', type: 'number', required: false },
+  ],
+  execute: async (args) => {
+    // Optional: implement tool logic
+    return { result: 'value' }
+  },
+})
+```
+
+### `matchers`
+
+```typescript
+import { matchers } from '@nem035/agentevals'
+
+matchers.objectContaining({ key: 'value' })  // Partial object match
+matchers.arrayContaining(['a', 'b'])         // Array contains elements
+matchers.stringMatching(/pattern/)           // String matches regex
+matchers.anything()                          // Matches any value
+```
 
 ---
 
